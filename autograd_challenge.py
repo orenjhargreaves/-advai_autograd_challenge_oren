@@ -101,56 +101,97 @@ class Tensor:
         out._backward = _backward
         return out
     
-    class NeuralNetwork:
+class NeuralNetwork:
+    """
+    A class that mimics simpleNN from torch_reference.
+    consists of:
+    - input: 5 neurons
+    - hidden layer 1: 10 neurons
+    - hidden layer 2: 8 neurons
+    - hidden layer 3: 5 neurons
+    - output: 1 neuron
+    """
+
+    def __init__(self):
+        self.fc1_weights = Tensor(np.random.randn(5,10), requires_grad=True)
+        self.fc1_bias = Tensor(np.zeros(10), requires_grad=True)
+
+        self.fc2_weights = Tensor(np.random.randn(10,8), requires_grad=True)
+        self.fc2_bias = Tensor(np.zeros(8), requires_grad=True)
+
+        self.fc3_weights = Tensor(np.random.randn(8,5), requires_grad=True)
+        self.fc3_bias = Tensor(np.zeros(5), requires_grad=True)
+    
+        self.fc4_weights = Tensor(np.random.randn(5,1), requires_grad=True)
+        self.fc4_bias = Tensor(np.zeros(1), requires_grad=True)
+    
+    def relu(self, x):
         """
-        A class that mimics simpleNN from torch_reference.
-        consists of:
-        - input: 5 neurons
-        - hidden layer 1: 10 neurons
-        - hidden layer 2: 8 neurons
-        - hidden layer 3: 5 neurons
-        - output: 1 neuron
+        ReLU activation layer
         """
+        out = Tensor(np.maximum(x.data, 0))
+        out._prev = {x}
 
-        def __init__(self):
-            self.fc1_weights = Tensor(np.random.randn(5,10), requires_grad=True)
-            self.fc1_bias = Tensor(np.zeros(10), requires_grad=True)
-
-            self.fc2_weights = Tensor(np.random.randn(10,8), requires_grad=True)
-            self.fc2_bias = Tensor(np.zeros(8), requires_grad=True)
-
-            self.fc3_weights = Tensor(np.random.randn(8,5), requires_grad=True)
-            self.fc3_bias = Tensor(np.zeros(5), requires_grad=True)
+        def _backward(): #output grad only backpropegated if in the x.data positive
+            x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
         
-            self.fc4_weights = Tensor(np.random.randn(5,1), requires_grad=True)
-            self.fc4_bias = Tensor(np.zeros(1), requires_grad=True)
-        
-        def relu(self, x):
-            """
-            ReLU activation layer
-            """
-            out = Tensor(np.maximum(x.data, 0))
-            out._prev = {x}
+        out._backward  = _backward
 
-            def _backward(): #output grad only backpropegated if in the x.data positive
-                x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
-            
-            out._backward  = _backward
+    def forward(self, x):
+        """
+        compute forward pass through the network
+        """
+        x = x.dot(self.fc1_weights) + self.fc1_bias
+        x = self.relu(x)
 
-        def forward(self, x):
-            """
-            compute forward pass through the network
-            """
-            x = x.dot(self.fc1_weights) + self.fc1_bias
-            x = self.relu(x)
+        x = x.dot(self.fc2_weights) + self.fc2_bias
+        x = self.relu(x)
 
-            x = x.dot(self.fc2_weights) + self.fc2_bias
-            x = self.relu(x)
+        x = x.dot(self.fc3_weights) + self.fc3_bias
+        x = self.relu(x)
 
-            x = x.dot(self.fc3_weights) + self.fc3_bias
-            x = self.relu(x)
+        x = x.dot(self.fc4_weights) + self.fc4_bias
+        x = self.relu(x)
 
-            x = x.dot(self.fc4_weights) + self.fc4_bias
-            x = self.relu(x)
+        return x
 
-            return x
+def train_one_epoch():
+    """
+    one pass through
+    """
+    #model defined above
+    model = NeuralNetwork()
+
+    # Hardcoded inputs and outputs mimicing those from torch_reference
+    inputs = Tensor(np.array([[0.5, -0.2, 0.1, 0.7, -0.3]]), requires_grad=False)
+    target = Tensor(np.array([[1.0]]), requires_grad=False)
+
+    # forward pass
+    outputs = model.forward(inputs)
+
+    # compute MSE loss
+    loss = ((outputs - target)**2).sum()
+
+    # backward pass
+    loss.backward()
+
+    print("Gradient from first layer: ", model.fc1_weights.grad)
+
+    #update weights
+    learning_rate = 0.01
+
+    for param in [model.fc1_weights, model.fc1_bias,
+                  model.fc2_weights, model.fc2_bias,
+                  model.fc3_weights, model.fc3_bias,
+                  model.fc4_weights, model.fc4_bias,
+                  ]:
+        if param.requires_grad:
+            param.data -= learning_rate*param.grad
+            param.grad = None #reset after use for any following epochs
+    
+    print("Deep model output: ", outputs.data)
+    print("Target: ", target.data)
+
+if __name__ == "__main__":
+    
+    train_one_epoch()
