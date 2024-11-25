@@ -128,9 +128,9 @@ class Tensor:
             """
             track update of gradients in graph            
             """
-            print("out: ", out)
-            print("self:", self)
-            print("other: ", other)
+            # print("out: ", out)
+            # print("self:", self)
+            # print("other: ", other)
 
             if self.requires_grad: # A.grad = C.grad matmult B.grad
                 self.grad = (self.grad + out.grad @ other.grad.T) if self.grad is not None else out.grad @ other.data.T
@@ -329,6 +329,10 @@ def train_one_epoch():
                   model.fc4_weights, model.fc4_bias,
                   ]:
         if param.requires_grad:
+            # Ensure the gradient shape matches the parameter shape
+            if param.grad.shape != param.data.shape:
+                param.grad = param.grad.reshape(param.data.shape)
+
             param.data -= learning_rate*param.grad
             param.grad = None #reset after use for any following epochs
     
