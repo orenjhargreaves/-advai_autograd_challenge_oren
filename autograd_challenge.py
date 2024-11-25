@@ -239,6 +239,7 @@ class NeuralNetwork:
         """
         out = Tensor(np.maximum(x.data, 0))
         out._prev = {x}
+        out.requires_grad = x.requires_grad
 
         def _backward(): #output grad only backpropegated if in the x.data positive
 
