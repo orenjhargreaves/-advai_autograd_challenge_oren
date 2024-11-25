@@ -23,7 +23,12 @@ class Tensor:
         computes the gradients for the tensor as well as connected tensors
         """
         if self.grad is None:
-            self.grad = np.ones_like(self.data)
+            # For scalar tensors, initialize gradient to 1
+            if self.data.ndim == 0 or self.data.size == 1:
+                self.grad = np.ones_like(self.data)  # Initialize gradient for scalars
+                print("backward() called so self.grad set to 1 for loss")
+            else:
+                raise ValueError("Gradient for the non-scalar output tensor is not initialized.")
         
         # topological sort
         topo_order = []
@@ -37,9 +42,14 @@ class Tensor:
                 topo_order.append(tensor)
         
         build_topo(self)
+        # print("Topo: ", topo_order)
+        # print("visited: ", visited)
 
         # backprop
         for t in reversed(topo_order):
+            # Initialize the gradient if it's not a scalar and the grad is None
+            if t.requires_grad and t.grad is None:
+                t.grad = np.zeros_like(t.data)
             t._backward()
     def __add__(self, other):
         """
@@ -57,6 +67,26 @@ class Tensor:
                 self.grad = (self.grad + out.grad) if self.grad is not None else out.grad
             if other.requires_grad:
                 other.grad = (other.grad + out.grad) if other.grad is not None else out.grad
+        
+        out._backward = _backward
+        return out
+    
+    def __sub__(self, other):
+        """
+        subtracts two tensors and tracks the operation in the computational graph
+        """
+        other = other if isinstance(other, Tensor) else Tensor(other)
+        out = Tensor(self.data - other.data)
+        out._prev = {self, other}
+
+        def _backward():
+            """
+            track update of gradients in graph            
+            """
+            if self.requires_grad:
+                self.grad = (self.grad - out.grad) if self.grad is not None else out.grad
+            if other.requires_grad:
+                other.grad = (other.grad - out.grad) if other.grad is not None else out.grad
         
         out._backward = _backward
         return out
@@ -81,7 +111,7 @@ class Tensor:
         out._backward = _backward
         return out
     
-    def __dot__(self, other):
+    def dot(self, other):
         """
         computes dot product of two tensors and tracks operation in computational graph
         """
@@ -93,13 +123,73 @@ class Tensor:
             """
             track update of gradients in graph            
             """
+
             if self.requires_grad: # A.grad = C.grad matmult B.grad
                 self.grad = (self.grad + out.grad @ other.grad.T) if self.grad is not None else out.grad @ other.data.T
             if other.requires_grad: # B.grad = C.grad matmult A.grad
-                other.grad = (other.grad + out.grad @ self.grad.T) if other.grad is not None else out.grad @ self.data.T
+                # print("out.grad: ", out.grad)
+                # print("self.grad: ", self.grad)
+                # print("other.grad: ", other.grad)
+                # print("self.data: ", self.data)
+                # print("is out.data.ndim==0", out.data.ndim == 0)
+                # print("is out.data.size==1", out.data.size)
+                # print("out.data: ", out.data)
+                print("self:", self)
+                print("other: ", other)
+                print("out: ", out)
+                other.grad = (other.grad + out.grad @ self.grad.T) if other.grad is not None else self.data.T @ out.grad
+            # if self.requires_grad:
+            #     grad_self = out.grad @ other.data.T
+            #     self.grad = self.grad + grad_self if self.grad is not None else grad_self
+
+            # if other.requires_grad:
+            #     grad_other = self.data.T @ out.grad
+            #     other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
         out._backward = _backward
         return out
+    
+    def __pow__(self, power):
+        """
+        calcualates self.data^power
+        """
+        assert isinstance(power, (int, float)), "Power must be an int or a float"
+        out = Tensor(self.data ** power)
+        out._prev = {self}
+        
+        def _backward():
+            """
+            Tracks the gradient computation for the power operation.
+            """
+            if self.requires_grad:
+                # Derivative of x^p w.r.t. x is p * x^(p-1)
+                self.grad = (self.grad + power * (self.data ** (power - 1)) * out.grad) if self.grad is not None else power * (self.data ** (power - 1)) * out.grad
+        
+        out._backward = _backward
+        return out
+    
+    def sum(self):
+        """
+        Computes the sum of all elements in the tensor and tracks the operation in the computational graph.
+        """
+        out = Tensor(self.data.sum())
+        out._prev = {self}
+        
+        def _backward():
+            """
+            Tracks the gradient computation for the sum operation.
+            """
+            if self.requires_grad:
+                # The gradient of sum w.r.t. each input element is 1
+                self.grad = (self.grad + np.ones_like(self.data) * out.grad) if self.grad is not None else np.ones_like(self.data) * out.grad
+        
+        out._backward = _backward
+        return out
+    
+    def __repr__(self):
+        return (f"Tensor(data={self.data}, requires_grad={self.requires_grad}, "
+                f"grad={self.grad}, _prev={len(self._prev)} parents)")
+
     
 class NeuralNetwork:
     """
@@ -124,6 +214,17 @@ class NeuralNetwork:
     
         self.fc4_weights = Tensor(np.random.randn(5,1), requires_grad=True)
         self.fc4_bias = Tensor(np.zeros(1), requires_grad=True)
+
+        #debug
+        print(f"fc1_weights: {self.fc1_weights}")
+        print(f"fc2_weights: {self.fc2_weights}")
+        print(f"fc3_weights: {self.fc3_weights}")
+        print(f"fc4_weights: {self.fc4_weights}")
+
+        print(f"fc1_bias: {self.fc1_bias}")
+        print(f"fc2_bias: {self.fc2_bias}")
+        print(f"fc3_bias: {self.fc3_bias}")
+        print(f"fc4_bias: {self.fc4_bias}")
     
     def relu(self, x):
         """
@@ -133,26 +234,40 @@ class NeuralNetwork:
         out._prev = {x}
 
         def _backward(): #output grad only backpropegated if in the x.data positive
-            x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
+
+            # Initialize `out.grad` if it is None
+            # if out.grad is None:
+            #     raise ValueError("Gradient of the output must be initialized before calling backward in ReLU.")
+            
+            # x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
+            # print("ReLU backward: out.grad =", out.grad)
+            if x.requires_grad:
+                relu_grad = (x.data > 0) * out.grad
+                x.grad = (x.grad + relu_grad) if x.grad is not None else relu_grad
         
         out._backward  = _backward
+        return out
 
     def forward(self, x):
         """
         compute forward pass through the network
         """
+        print(f"x type: {type(x)}, self.fc1_weights type: {type(self.fc1_weights)}")
         x = x.dot(self.fc1_weights) + self.fc1_bias
+        print(f"pre first relu: x type: {type(x)}")
         x = self.relu(x)
 
+        print(f"x type: {type(x)}, self.fc2_weights type: {type(self.fc2_weights)}")
         x = x.dot(self.fc2_weights) + self.fc2_bias
         x = self.relu(x)
 
+        print(f"x type: {type(x)}, self.fc3_weights type: {type(self.fc3_weights)}")
         x = x.dot(self.fc3_weights) + self.fc3_bias
         x = self.relu(x)
 
+        print(f"x type: {type(x)}, self.fc4_weights type: {type(self.fc4_weights)}")
         x = x.dot(self.fc4_weights) + self.fc4_bias
         x = self.relu(x)
-
         return x
 
 def train_one_epoch():
@@ -171,6 +286,23 @@ def train_one_epoch():
 
     # compute MSE loss
     loss = ((outputs - target)**2).sum()
+
+    #debug
+    print("loss function: ", type(loss))
+    print("loss data: ", loss.data)
+    print("loss grad: ", loss.grad)
+    print("loss requires_grad: ", loss.requires_grad)
+
+    # print("Loss gradient (before backward):", loss.grad)
+    # print("Loss data shape:", loss.data.shape)
+
+    # Initialize the gradient of the loss explicitly (as loss is a scalar)
+    # if loss.grad is None:
+    #     loss.grad = np.ones_like(loss.data)
+    
+    print("Loss gradient (before backward):", loss.grad)
+    print("Loss data shape:", loss.data.shape)
+    print("loss object: ", loss)
 
     # backward pass
     loss.backward()
@@ -193,5 +325,12 @@ def train_one_epoch():
     print("Target: ", target.data)
 
 if __name__ == "__main__":
+    # # Get methods of the class
+    # methods = [attr for attr in dir(Tensor) if callable(getattr(Tensor, attr))]
+
+    # # Print the methods
+    # print("Methods of Tensor:")
+    # for method in methods:
+    #     print(method)
     
     train_one_epoch()
