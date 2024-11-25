@@ -42,8 +42,6 @@ class Tensor:
                 topo_order.append(tensor)
         
         build_topo(self)
-        # print("Topo: ", topo_order)
-        # print("visited: ", visited)
 
         # backprop
         for n, t in enumerate(reversed(topo_order)):
@@ -128,28 +126,10 @@ class Tensor:
             """
             track update of gradients in graph            
             """
-            # print("out: ", out)
-            # print("self:", self)
-            # print("other: ", other)
-
             if self.requires_grad: # A.grad = C.grad matmult B.grad
                 self.grad = (self.grad + out.grad @ other.grad.T) if self.grad is not None else out.grad @ other.data.T
             if other.requires_grad: # B.grad = C.grad matmult A.grad
-                # print("out.grad: ", out.grad)
-                # print("self.grad: ", self.grad)
-                # print("other.grad: ", other.grad)
-                # print("self.data: ", self.data)
-                # print("is out.data.ndim==0", out.data.ndim == 0)
-                # print("is out.data.size==1", out.data.size)
-                # print("out.data: ", out.data)
                 other.grad = (other.grad + out.grad @ self.grad.T) if other.grad is not None else self.data.T @ out.grad
-            # if self.requires_grad:
-            #     grad_self = out.grad @ other.data.T
-            #     self.grad = self.grad + grad_self if self.grad is not None else grad_self
-
-            # if other.requires_grad:
-            #     grad_other = self.data.T @ out.grad
-            #     other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
         out._backward = _backward
         return out
@@ -242,13 +222,6 @@ class NeuralNetwork:
         out.requires_grad = x.requires_grad
 
         def _backward(): #output grad only backpropegated if in the x.data positive
-
-            # Initialize `out.grad` if it is None
-            # if out.grad is None:
-            #     raise ValueError("Gradient of the output must be initialized before calling backward in ReLU.")
-            
-            # x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
-            # print("ReLU backward: out.grad =", out.grad)
             if x.requires_grad:
                 relu_grad = (x.data > 0) * out.grad
                 x.grad = (x.grad + relu_grad) if x.grad is not None else relu_grad
@@ -298,23 +271,6 @@ def train_one_epoch():
     # compute MSE loss
     loss = ((outputs - target)**2).sum()
 
-    #debug
-    # print("loss function: ", type(loss))
-    # print("loss data: ", loss.data)
-    # print("loss grad: ", loss.grad)
-    # print("loss requires_grad: ", loss.requires_grad)
-
-    # print("Loss gradient (before backward):", loss.grad)
-    # print("Loss data shape:", loss.data.shape)
-
-    # Initialize the gradient of the loss explicitly (as loss is a scalar)
-    # if loss.grad is None:
-    #     loss.grad = np.ones_like(loss.data)
-    
-    # print("Loss gradient (before backward):", loss.grad)
-    # print("Loss data shape:", loss.data.shape)
-    # print("loss object: ", loss)
-
     # backward pass
     loss.backward()
 
@@ -339,15 +295,6 @@ def train_one_epoch():
     print("Deep model output: ", outputs.data)
     print("Target: ", target.data)
 
-if __name__ == "__main__":
-    # # Get methods of the class
-    # methods = [attr for attr in dir(Tensor) if callable(getattr(Tensor, attr))]
-
-    # # Print the methods
-    # print("Methods of Tensor:")
-    # for method in methods:
-    #     print(method)
-    
+if __name__ == "__main__":    
     np.set_printoptions(threshold=np.inf, linewidth=200, precision=10, suppress=True)
-    
     train_one_epoch()
