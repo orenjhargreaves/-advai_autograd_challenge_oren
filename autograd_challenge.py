@@ -46,10 +46,11 @@ class Tensor:
         # print("visited: ", visited)
 
         # backprop
-        for t in reversed(topo_order):
+        for n, t in enumerate(reversed(topo_order)):
             # Initialize the gradient if it's not a scalar and the grad is None
             if t.requires_grad and t.grad is None:
                 t.grad = np.zeros_like(t.data)
+            print(f"backprop level {n}: ", t)
             t._backward()
     def __add__(self, other):
         """
@@ -58,6 +59,7 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other)
         out = Tensor(self.data + other.data)
         out._prev = {self, other}
+        out.requires_grad =self.requires_grad or other.requires_grad
 
         def _backward():
             """
@@ -78,6 +80,7 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other)
         out = Tensor(self.data - other.data)
         out._prev = {self, other}
+        out.requires_grad =self.requires_grad or other.requires_grad
 
         def _backward():
             """
@@ -98,6 +101,7 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other)
         out = Tensor(self.data * other.data)
         out._prev = {self, other}
+        out.requires_grad =self.requires_grad or other.requires_grad
 
         def _backward():
             """
@@ -118,11 +122,15 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other)
         out = Tensor(self.data.dot(other.data))
         out._prev = {self, other}
+        out.requires_grad =self.requires_grad or other.requires_grad
 
         def _backward():
             """
             track update of gradients in graph            
             """
+            print("out: ", out)
+            print("self:", self)
+            print("other: ", other)
 
             if self.requires_grad: # A.grad = C.grad matmult B.grad
                 self.grad = (self.grad + out.grad @ other.grad.T) if self.grad is not None else out.grad @ other.data.T
@@ -134,9 +142,6 @@ class Tensor:
                 # print("is out.data.ndim==0", out.data.ndim == 0)
                 # print("is out.data.size==1", out.data.size)
                 # print("out.data: ", out.data)
-                print("self:", self)
-                print("other: ", other)
-                print("out: ", out)
                 other.grad = (other.grad + out.grad @ self.grad.T) if other.grad is not None else self.data.T @ out.grad
             # if self.requires_grad:
             #     grad_self = out.grad @ other.data.T
@@ -156,6 +161,7 @@ class Tensor:
         assert isinstance(power, (int, float)), "Power must be an int or a float"
         out = Tensor(self.data ** power)
         out._prev = {self}
+        out.requires_grad = self.requires_grad
         
         def _backward():
             """
@@ -174,6 +180,7 @@ class Tensor:
         """
         out = Tensor(self.data.sum())
         out._prev = {self}
+        out.requires_grad = self.requires_grad
         
         def _backward():
             """
@@ -252,21 +259,24 @@ class NeuralNetwork:
         """
         compute forward pass through the network
         """
-        print(f"x type: {type(x)}, self.fc1_weights type: {type(self.fc1_weights)}")
+        print(f"self.fc1_weights: {self.fc1_weights}")
         x = x.dot(self.fc1_weights) + self.fc1_bias
-        print(f"pre first relu: x type: {type(x)}")
+        print(f"pre relu:{x}")
         x = self.relu(x)
 
-        print(f"x type: {type(x)}, self.fc2_weights type: {type(self.fc2_weights)}")
+        print(f"self.fc2_weights: {self.fc2_weights}")
         x = x.dot(self.fc2_weights) + self.fc2_bias
+        print(f"pre relu:{x}")
         x = self.relu(x)
 
-        print(f"x type: {type(x)}, self.fc3_weights type: {type(self.fc3_weights)}")
+        print(f"self.fc3_weights: {self.fc3_weights}")
         x = x.dot(self.fc3_weights) + self.fc3_bias
+        print(f"pre relu:{x}")
         x = self.relu(x)
 
-        print(f"x type: {type(x)}, self.fc4_weights type: {type(self.fc4_weights)}")
+        print(f"self.fc4_weights: {self.fc4_weights}")
         x = x.dot(self.fc4_weights) + self.fc4_bias
+        print(f"pre relu:{x}")
         x = self.relu(x)
         return x
 
