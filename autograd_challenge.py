@@ -100,3 +100,57 @@ class Tensor:
 
         out._backward = _backward
         return out
+    
+    class NeuralNetwork:
+        """
+        A class that mimics simpleNN from torch_reference.
+        consists of:
+        - input: 5 neurons
+        - hidden layer 1: 10 neurons
+        - hidden layer 2: 8 neurons
+        - hidden layer 3: 5 neurons
+        - output: 1 neuron
+        """
+
+        def __init__(self):
+            self.fc1_weights = Tensor(np.random.randn(5,10), requires_grad=True)
+            self.fc1_bias = Tensor(np.zeros(10), requires_grad=True)
+
+            self.fc2_weights = Tensor(np.random.randn(10,8), requires_grad=True)
+            self.fc2_bias = Tensor(np.zeros(8), requires_grad=True)
+
+            self.fc3_weights = Tensor(np.random.randn(8,5), requires_grad=True)
+            self.fc3_bias = Tensor(np.zeros(5), requires_grad=True)
+        
+            self.fc4_weights = Tensor(np.random.randn(5,1), requires_grad=True)
+            self.fc4_bias = Tensor(np.zeros(1), requires_grad=True)
+        
+        def relu(self, x):
+            """
+            ReLU activation layer
+            """
+            out = Tensor(np.maximum(x.data, 0))
+            out._prev = {x}
+
+            def _backward(): #output grad only backpropegated if in the x.data positive
+                x.grad = (x.grad + (x.data>0) * out.grad) if x.grad is not None else (x.data > 0)*out.grad
+            
+            out._backward  = _backward
+
+        def forward(self, x):
+            """
+            compute forward pass through the network
+            """
+            x = x.dot(self.fc1_weights) + self.fc1_bias
+            x = self.relu(x)
+
+            x = x.dot(self.fc2_weights) + self.fc2_bias
+            x = self.relu(x)
+
+            x = x.dot(self.fc3_weights) + self.fc3_bias
+            x = self.relu(x)
+
+            x = x.dot(self.fc4_weights) + self.fc4_bias
+            x = self.relu(x)
+
+            return x
