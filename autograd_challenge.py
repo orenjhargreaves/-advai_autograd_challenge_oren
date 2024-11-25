@@ -299,10 +299,10 @@ def train_one_epoch():
     loss = ((outputs - target)**2).sum()
 
     #debug
-    print("loss function: ", type(loss))
-    print("loss data: ", loss.data)
-    print("loss grad: ", loss.grad)
-    print("loss requires_grad: ", loss.requires_grad)
+    # print("loss function: ", type(loss))
+    # print("loss data: ", loss.data)
+    # print("loss grad: ", loss.grad)
+    # print("loss requires_grad: ", loss.requires_grad)
 
     # print("Loss gradient (before backward):", loss.grad)
     # print("Loss data shape:", loss.data.shape)
@@ -311,9 +311,9 @@ def train_one_epoch():
     # if loss.grad is None:
     #     loss.grad = np.ones_like(loss.data)
     
-    print("Loss gradient (before backward):", loss.grad)
-    print("Loss data shape:", loss.data.shape)
-    print("loss object: ", loss)
+    # print("Loss gradient (before backward):", loss.grad)
+    # print("Loss data shape:", loss.data.shape)
+    # print("loss object: ", loss)
 
     # backward pass
     loss.backward()
@@ -347,5 +347,7 @@ if __name__ == "__main__":
     # print("Methods of Tensor:")
     # for method in methods:
     #     print(method)
+    
+    np.set_printoptions(threshold=np.inf, linewidth=200, precision=10, suppress=True)
     
     train_one_epoch()
