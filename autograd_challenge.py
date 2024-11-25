@@ -296,5 +296,5 @@ def train_one_epoch():
     print("Target: ", target.data)
 
 if __name__ == "__main__":    
-    np.set_printoptions(threshold=np.inf, linewidth=200, precision=10, suppress=True)
+    np.set_printoptions(threshold=np.inf, linewidth=200, precision=4, suppress=True)
     train_one_epoch()
